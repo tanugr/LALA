@@ -1,0 +1,62 @@
+clc;
+clear all;
+format short;
+
+C = [5 3 0 0];
+A = [3 5 1 0 15;
+     5 2 0 1 10];
+
+[m, n] = size(A);
+bv = [3 4];
+cost = C;
+zjcj = cost(bv) * A(:, 1:n-1) - cost(1:n-1);
+zjcj = [zjcj 0];
+
+fprintf('\nInitial Simplex Table:\n');
+zcj = [zjcj; A];
+disp(zcj);
+
+RUN = true;
+
+while RUN
+    if any(zjcj(1:end-1) < 0)
+        fprintf('\nThe current BFS is not optimal.\n');
+        [enter_val, pvt_col] = min(zjcj(1:end-1));
+        column = A(:, pvt_col);
+        if all(column <= 0)
+            error('LPP is Unbounded. All entries ≤ 0 in column %d.', pvt_col);
+        end
+        sol = A(:, end);
+        ratio = inf(m,1);
+        for i = 1:m
+            if column(i) > 0
+                ratio(i) = sol(i) / column(i);
+            end
+        end
+        [leaving_val, pvt_row] = min(ratio);
+        bv(pvt_row) = pvt_col;
+        pvt_key = A(pvt_row, pvt_col);
+        A(pvt_row, :) = A(pvt_row, :) / pvt_key;
+        for i = 1:m
+            if i ~= pvt_row
+                A(i, :) = A(i, :) - A(i, pvt_col) * A(pvt_row, :);
+            end
+        end
+        zjcj = cost(bv) * A(:, 1:n-1) - cost(1:n-1);
+        zjcj = [zjcj 0];
+        zcj = [zjcj; A];
+        fprintf('\nUpdated Simplex Table:\n');
+        disp(zcj);
+    else
+        RUN = false;
+        fprintf('\nThe current BFS is optimal.\n');
+        solution = zeros(1, length(cost));
+        solution(bv) = A(:, end)';
+        Z = solution * cost';
+        fprintf('\nOptimal solution:\n');
+        for i = 1:length(solution)
+            fprintf('Variable x%d = %.2f\n', i, solution(i));
+        end
+        fprintf('Maximum value of Z = %.2f\n', Z);
+    end
+end
