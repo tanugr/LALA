@@ -1,0 +1,76 @@
+format short
+clear all
+clc
+
+% Cost: Max Z = -2x1 - x2 + 0s1 + 0s2 - M*a1 - M*a2 → use large +ve M
+M = 1e5;
+Cost = [-2 -1 0 0 -M -M 0]; % Coefficients of [x1 x2 s1 s2 a1 a2 RHS]
+
+% Constraints:
+A = [3 1 0 0 1 0 3;     % x1 x2 a1
+     4 3 -1 0 0 1 6;    % x1 x2 -s1 + a2
+     1 2 0 1 0 0 3];    % x1 x2 + s2
+
+% Initial Basic Variables: a1, a2, s2
+BV = [5 6 4];
+
+% Calculate initial Zj - Cj
+ZjCj = Cost(BV) * A - Cost;
+zcj = [Cost; ZjCj; A];
+disp('Initial Table:');
+disp(zcj);
+
+RUN = true;
+while RUN
+    ZC = ZjCj(1:end-1);
+    if any(ZC < 0)
+        fprintf('\nThe current BFS is not optimal\n');
+        [minval, pvt_col] = min(ZC);
+        fprintf('Entering Column = %d\n', pvt_col);
+        
+        sol = A(:, end);
+        Column = A(:, pvt_col);
+        
+        if all(Column <= 0)
+            error('LPP is unbounded');
+        else
+            ratio = zeros(size(Column));
+            for i = 1:size(A, 1)
+                if Column(i) > 0
+                    ratio(i) = sol(i) / Column(i);
+                else
+                    ratio(i) = inf;
+                end
+            end
+            
+            [MinRatio, pvt_row] = min(ratio);
+            fprintf('Leaving Row = %d\n', pvt_row);
+        end
+
+        BV(pvt_row) = pvt_col;
+        pvt_key = A(pvt_row, pvt_col);
+        A(pvt_row, :) = A(pvt_row, :) / pvt_key;
+
+        for i = 1:size(A, 1)
+            if i ~= pvt_row
+                A(i, :) = A(i, :) - A(i, pvt_col) * A(pvt_row, :);
+            end
+        end
+
+        ZjCj = Cost(BV) * A - Cost;
+        ZCj = [ZjCj; A];
+        disp('Updated Table:');
+        disp(ZCj);
+    else
+        RUN = false;
+        fprintf('\nCurrent BFS is Optimal\n');
+    end
+end
+
+% Final optimal solution
+final_solution = zeros(1, length(Cost));
+final_solution(BV) = A(:, end)';
+Z = final_solution * Cost';
+fprintf('Optimal value of Z = %f\n', Z);
+disp('Final variable values:');
+disp(final_solution);
